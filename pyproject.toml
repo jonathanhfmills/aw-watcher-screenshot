@@ -7,7 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "aw-client>=0.5.15",
     "aw-core>=0.5.17",
+    "click>=8.3.0",
     "mss>=10.1.0",
+    "pillow>=11.3.0",
     "psutil>=7.1.0",
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
