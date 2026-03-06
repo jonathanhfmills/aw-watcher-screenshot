@@ -77,6 +77,10 @@ aw-watcher-screenshot-linux --no-window-detection --capture-on-start
 - `requests` — AW API queries for window detection
 - One of: `cosmic-screenshot`, `grim`, `gnome-screenshot` — screenshot capture
 
+## Future
+
+- [ ] Rust rewrite — single static binary, no Python runtime, consistent with [aw-watcher-window-cosmic](https://github.com/jonathanhfmills/aw-watcher-window-cosmic)
+
 ## License
 
 MIT
