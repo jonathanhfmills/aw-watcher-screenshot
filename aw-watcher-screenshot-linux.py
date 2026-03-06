@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI entry point for aw-watcher-screenshot."""
+"""CLI entry point for aw-watcher-screenshot-linux."""
 
 import logging
 import sys
@@ -12,7 +12,7 @@ from aw_watcher_screenshot.models import ImageFormat, WatcherConfig
 from aw_watcher_screenshot.utils import FileUtils
 from aw_watcher_screenshot.watcher import ScreenshotWatcher
 
-LOG = logging.getLogger("aw-watcher-screenshot")
+LOG = logging.getLogger("aw-watcher-screenshot-linux")
 
 
 @click.command()
@@ -148,7 +148,7 @@ def main(
     )
 
     LOG.info("=" * 60)
-    LOG.info("aw-watcher-screenshot (Wayland-native)")
+    LOG.info("aw-watcher-screenshot-linux (Wayland-native)")
     LOG.info("=" * 60)
     LOG.info(f"Mode: {'Screenshot-only' if no_window_detection else 'Window detection'}")
     LOG.info(f"Screenshots: {config.screenshots_dir}")

@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aw-watcher-screenshot"
+name = "aw-watcher-screenshot-linux"
 version = "0.2.0"
 description = "ActivityWatch screenshot watcher — Wayland-native with perceptual dedup"
 readme = "README.md"
@@ -19,4 +19,4 @@ dependencies = [
 ]
 
 [project.scripts]
-aw-watcher-screenshot = "aw_watcher_screenshot.cli:main"
+aw-watcher-screenshot-linux = "aw_watcher_screenshot.cli:main"

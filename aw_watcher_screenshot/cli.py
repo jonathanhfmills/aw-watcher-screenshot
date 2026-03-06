@@ -14,7 +14,7 @@ from .models import ImageFormat, WatcherConfig
 from .utils import FileUtils
 from .watcher import ScreenshotWatcher
 
-LOG = logging.getLogger("aw-watcher-screenshot")
+LOG = logging.getLogger("aw-watcher-screenshot-linux")
 
 
 @click.command()
@@ -46,7 +46,7 @@ def main(
     testing: bool,
     log_level: str,
 ):
-    """ActivityWatch screenshot watcher — Wayland-native."""
+    """ActivityWatch screenshot watcher for Linux (Wayland-native)."""
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -71,7 +71,7 @@ def main(
     )
 
     LOG.info("=" * 60)
-    LOG.info("aw-watcher-screenshot (Wayland-native)")
+    LOG.info("aw-watcher-screenshot-linux")
     LOG.info("=" * 60)
     LOG.info(f"Mode: {'Screenshot-only' if no_window_detection else 'Window detection'}")
     LOG.info(f"Screenshots: {config.screenshots_dir}")

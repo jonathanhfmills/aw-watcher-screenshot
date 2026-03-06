@@ -1,8 +1,8 @@
-# aw-watcher-screenshot
+# aw-watcher-screenshot-linux
 
-ActivityWatch watcher that captures screenshots on window changes. Wayland-native — works on COSMIC, wlroots compositors, GNOME, and X11.
+ActivityWatch watcher that captures screenshots on window changes. **Linux-only**, Wayland-native — works on COSMIC, wlroots compositors, GNOME, and X11.
 
-Forked from [Srakai/aw-watcher-screenshot](https://github.com/Srakai/aw-watcher-screenshot) with Wayland support, perceptual dedup, and disk management.
+Forked from [Srakai/aw-watcher-screenshot](https://github.com/Srakai/aw-watcher-screenshot). The upstream supported macOS and Windows but was broken on Wayland. This fork drops cross-platform support and focuses on Linux with native Wayland capture, perceptual dedup, and disk management.
 
 ## How it works
 
@@ -32,25 +32,25 @@ uv pip install .
 
 ### NixOS
 
-A Nix package and systemd user service are provided in the author's dotfiles. See `dotfiles/pkgs/aw-watcher-screenshot/default.nix`.
+A Nix package and systemd user service are provided in the author's dotfiles. See `dotfiles/pkgs/aw-watcher-screenshot-linux/default.nix`.
 
 ## Usage
 
 ```bash
 # Default: WebP, window detection via AW API, 5s delay, 5000 file / 2GB limit
-aw-watcher-screenshot
+aw-watcher-screenshot-linux
 
 # Debug mode
-aw-watcher-screenshot --log-level DEBUG
+aw-watcher-screenshot-linux --log-level DEBUG
 
 # JPEG output, lower quality
-aw-watcher-screenshot --format jpg --quality 50
+aw-watcher-screenshot-linux --format jpg --quality 50
 
 # Tighter limits
-aw-watcher-screenshot --max-screenshots 1000 --max-disk-mb 500
+aw-watcher-screenshot-linux --max-screenshots 1000 --max-disk-mb 500
 
 # No window detection (timer-only mode — not very useful)
-aw-watcher-screenshot --no-window-detection --capture-on-start
+aw-watcher-screenshot-linux --no-window-detection --capture-on-start
 ```
 
 ## Options

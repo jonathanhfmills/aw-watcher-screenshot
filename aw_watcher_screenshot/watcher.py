@@ -32,7 +32,7 @@ class ScreenshotWatcher:
         self.image_capture = ImageCapture(config.image_format, config.image_quality)
 
         self.client = aw_client.ActivityWatchClient(
-            "aw-watcher-screenshot", testing=config.testing_mode
+            "aw-watcher-screenshot-linux", testing=config.testing_mode
         )
         self.bucket_id = f"{self.client.client_name}_{self.client.client_hostname}"
 
