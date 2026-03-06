@@ -1,16 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "aw-watcher-screenshot"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "ActivityWatch screenshot watcher — Wayland-native with perceptual dedup"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
+license = { text = "MIT" }
 dependencies = [
     "aw-client>=0.5.15",
     "aw-core>=0.5.17",
     "click>=8.3.0",
-    "mss>=10.1.0",
-    "pillow>=11.3.0",
-    "psutil>=7.1.0",
-    "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
-    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
+    "imagehash>=4.3.0",
+    "pillow>=10.0.0",
+    "requests>=2.28.0",
 ]
+
+[project.scripts]
+aw-watcher-screenshot = "aw_watcher_screenshot.cli:main"

@@ -1,42 +1,82 @@
 # aw-watcher-screenshot
 
-ActivityWatch watcher that captures screenshots on window changes.
+ActivityWatch watcher that captures screenshots on window changes. Wayland-native — works on COSMIC, wlroots compositors, GNOME, and X11.
 
-## Features
+Forked from [Srakai/aw-watcher-screenshot](https://github.com/Srakai/aw-watcher-screenshot) with Wayland support, perceptual dedup, and disk management.
 
-- 📸 **Screenshot on window change** - Automatically captures when you switch windows
-- 🖼️ **Single screen capture** - Captures only your primary screen
-- ⏱️ **Smart rate limiting** - Max 1 screenshot per 5 seconds by default
-- ⏰ **Delay after change** - 5-second delay after window change (lets you settle in, no meaningless screenshots)
-- 📊 **ActivityWatch integration** - Stores metadata in AW database
+## How it works
 
-On macOS screenshots are stored in
-`~/Library/Application Support/activitywatch/Screenshots`
+1. Polls for window changes via the ActivityWatch API (reads from your running `aw-watcher-window` instance)
+2. On window change, waits 5s then captures a screenshot via your compositor's native tool
+3. Computes a perceptual hash (dHash) — skips the screenshot if the screen looks the same
+4. Saves as WebP (3x smaller than PNG) and emits an ActivityWatch event with app, title, path, and hash
+5. Cleans up old screenshots when count or disk limits are exceeded
+
+## Screenshot backends
+
+Detected automatically in order:
+
+| Backend | Compositor | Notes |
+|---------|-----------|-------|
+| `cosmic-screenshot` | COSMIC | Silent capture, no portal needed |
+| `grim` | wlroots (Sway, Hyprland, etc.) | |
+| `gnome-screenshot` | GNOME | |
 
 ## Installation
 
 ```bash
-# Install dependencies
-uv sync
-
-# macOS users (for window detection):
-pip install pyobjc
-
-# Linux users (for window detection):
-pip install python-xlib ewmh
+pip install .
+# or
+uv pip install .
 ```
 
-## Quick Start
+### NixOS
+
+A Nix package and systemd user service are provided in the author's dotfiles. See `dotfiles/pkgs/aw-watcher-screenshot/default.nix`.
+
+## Usage
 
 ```bash
-uv run python aw-watcher-screenshot.py
+# Default: WebP, window detection via AW API, 5s delay, 5000 file / 2GB limit
+aw-watcher-screenshot
+
+# Debug mode
+aw-watcher-screenshot --log-level DEBUG
+
+# JPEG output, lower quality
+aw-watcher-screenshot --format jpg --quality 50
+
+# Tighter limits
+aw-watcher-screenshot --max-screenshots 1000 --max-disk-mb 500
+
+# No window detection (timer-only mode — not very useful)
+aw-watcher-screenshot --no-window-detection --capture-on-start
 ```
 
-## Platform Support
+## Options
 
-Tested only on macOS
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `webp` | Image format: `webp`, `jpg`, `png` |
+| `--quality` | `70` | WebP/JPEG quality (1-100) |
+| `--poll` | `1.0` | Polling interval in seconds |
+| `--screenshot-delay` | `5.0` | Seconds to wait after window change |
+| `--min-interval` | `5.0` | Minimum seconds between screenshots |
+| `--max-screenshots` | `5000` | Max files to keep (0=unlimited) |
+| `--max-disk-mb` | `2000` | Max disk usage in MB (0=unlimited) |
+| `--hash-threshold` | `4` | dHash distance threshold for dedup |
+| `--screens-dir` | `~/.local/share/activitywatch/screenshots` | Screenshot directory |
+| `--testing` | off | AW testing mode |
 
-- ✅ **macOS**: Works enough for me (does not capture active window title)
-- ✅ **Windows**: Should support
-- ✅ **Linux**: Should support X11 (requires `python-xlib ewmh` or `xdotool`)
-- ⚠️ **Wayland**: Limited (no native window detection)
+## Dependencies
+
+- `aw-client`, `aw-core` — ActivityWatch integration
+- `click` — CLI
+- `pillow` — Image format conversion
+- `imagehash` — Perceptual hashing (dHash)
+- `requests` — AW API queries for window detection
+- One of: `cosmic-screenshot`, `grim`, `gnome-screenshot` — screenshot capture
+
+## License
+
+MIT

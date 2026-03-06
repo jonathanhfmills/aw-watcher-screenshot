@@ -28,13 +28,7 @@ LOG = logging.getLogger("aw-watcher-screenshot")
     "--no-window-detection",
     is_flag=True,
     default=False,
-    help="Disable window detection (fast mode - screenshot only).",
-)
-@click.option(
-    "--crop-active-window",
-    is_flag=True,
-    default=False,
-    help="Crop screenshot to active window bounds (requires window detection).",
+    help="Disable window detection (screenshot-only mode).",
 )
 @click.option(
     "--capture-on-start",
@@ -50,25 +44,26 @@ LOG = logging.getLogger("aw-watcher-screenshot")
     help="Directory to save screenshots.",
 )
 @click.option(
-    "--jpeg",
-    "use_jpeg",
-    is_flag=True,
-    default=False,
-    help="Save as JPEG instead of PNG (requires Pillow).",
+    "--format",
+    "image_format",
+    type=click.Choice(["webp", "jpg", "png"], case_sensitive=False),
+    default="webp",
+    show_default=True,
+    help="Image format.",
 )
 @click.option(
     "--quality",
     type=int,
-    default=90,
+    default=70,
     show_default=True,
-    help="JPEG quality (1-100) if --jpeg is set.",
+    help="Image quality for WebP/JPEG (1-100).",
 )
 @click.option(
     "--min-interval",
     type=float,
     default=5.0,
     show_default=True,
-    help="Minimum seconds between screenshots (rate limiting).",
+    help="Minimum seconds between screenshots.",
 )
 @click.option(
     "--screenshot-delay",
@@ -78,11 +73,25 @@ LOG = logging.getLogger("aw-watcher-screenshot")
     help="Seconds to wait after window change before capturing.",
 )
 @click.option(
-    "--screen",
+    "--max-screenshots",
     type=int,
-    default=1,
+    default=5000,
     show_default=True,
-    help="Which screen to capture (1=first screen, 0=all screens).",
+    help="Maximum number of screenshots to keep (0=unlimited).",
+)
+@click.option(
+    "--max-disk-mb",
+    type=int,
+    default=2000,
+    show_default=True,
+    help="Maximum disk usage in MB (0=unlimited).",
+)
+@click.option(
+    "--hash-threshold",
+    type=int,
+    default=4,
+    show_default=True,
+    help="Perceptual hash distance threshold for dedup (0=exact only).",
 )
 @click.option(
     "--testing",
@@ -100,75 +109,55 @@ LOG = logging.getLogger("aw-watcher-screenshot")
 def main(
     poll_time: float,
     no_window_detection: bool,
-    crop_active_window: bool,
     capture_on_start: bool,
     screens_dir: Optional[str],
-    use_jpeg: bool,
+    image_format: str,
     quality: int,
     min_interval: float,
     screenshot_delay: float,
-    screen: int,
+    max_screenshots: int,
+    max_disk_mb: int,
+    hash_threshold: int,
     testing: bool,
     log_level: str,
 ):
-    """
-    ActivityWatch screenshot watcher.
-
-    Captures screenshots on window change (or on a timer in fast mode).
-
-    \b
-    Fast Mode (--no-window-detection):
-      - No window detection overhead
-      - Screenshots on timer only
-      - Best performance
-
-    \b
-    Window Detection Mode (default):
-      - Detects window changes
-      - Captures app/title metadata
-      - Optional cropping support
-    """
-    # Configure logging
+    """ActivityWatch screenshot watcher — Wayland-native."""
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    # Build configuration
+    fmt_map = {"webp": ImageFormat.WEBP, "jpg": ImageFormat.JPEG, "png": ImageFormat.PNG}
+
     config = WatcherConfig(
         poll_interval=poll_time,
-        crop_to_window=crop_active_window,
         capture_on_start=capture_on_start,
         screenshots_dir=(
             Path(screens_dir) if screens_dir else FileUtils.get_default_screenshot_dir()
         ),
-        spool_dir=None,
-        image_format=ImageFormat.JPEG if use_jpeg else ImageFormat.PNG,
-        jpeg_quality=quality,
+        image_format=fmt_map[image_format.lower()],
+        image_quality=quality,
         testing_mode=testing,
         log_level=log_level,
         min_screenshot_interval=min_interval,
         screenshot_delay=screenshot_delay,
-        screen_number=screen,
         detect_window_info=not no_window_detection,
+        max_screenshots=max_screenshots,
+        max_disk_mb=max_disk_mb,
+        hash_threshold=hash_threshold,
     )
 
     LOG.info("=" * 60)
-    LOG.info("ActivityWatch Screenshot Watcher")
+    LOG.info("aw-watcher-screenshot (Wayland-native)")
     LOG.info("=" * 60)
-    LOG.info(
-        f"Mode: {'Fast (screenshot-only)' if no_window_detection else 'Window detection'}"
-    )
+    LOG.info(f"Mode: {'Screenshot-only' if no_window_detection else 'Window detection'}")
     LOG.info(f"Screenshots: {config.screenshots_dir}")
-    LOG.info(f"Screen: {screen} ({'all' if screen == 0 else 'single'})")
-    LOG.info(f"Format: {config.image_format.value.upper()}")
-    LOG.info(f"Min interval: {min_interval}s")
-    LOG.info(f"Screenshot delay: {screenshot_delay}s")
-    if crop_active_window:
-        LOG.info("Cropping: Enabled")
+    LOG.info(f"Format: {config.image_format.value} (quality={quality})")
+    LOG.info(f"Min interval: {min_interval}s | Delay: {screenshot_delay}s")
+    LOG.info(f"Limits: {max_screenshots} files / {max_disk_mb}MB")
+    LOG.info(f"Hash threshold: {hash_threshold}")
     LOG.info("=" * 60)
 
-    # Create and start watcher
     try:
         watcher = ScreenshotWatcher(config)
         watcher.start()

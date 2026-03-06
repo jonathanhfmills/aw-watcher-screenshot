@@ -1,117 +1,93 @@
-"""Screenshot capture functionality."""
+"""Screenshot capture via compositor tools, with Pillow format conversion."""
 
 import io
 import logging
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 from typing import Optional, Tuple
 
-from mss import mss
-from mss.tools import to_png
+from PIL import Image
 
-from .models import BoundingBox, ImageFormat
+from .models import ImageFormat
 
 LOG = logging.getLogger(__name__)
 
 
 class ImageCapture:
-    """Handles screenshot capture and encoding."""
+    """Captures screenshots via compositor-native tools and converts to the target format."""
 
-    def __init__(
-        self, image_format: ImageFormat, jpeg_quality: int = 90, screen_number: int = 1
-    ):
-        """
-        Initialize image capture.
-
-        Args:
-            image_format: Output image format (PNG or JPEG)
-            jpeg_quality: JPEG quality (1-100) if using JPEG format
-            screen_number: Which screen to capture (1-indexed, 0 for all screens)
-        """
+    def __init__(self, image_format: ImageFormat, image_quality: int = 70):
         self.image_format = image_format
-        self.jpeg_quality = jpeg_quality
-        self.screen_number = screen_number
-        self._pil_available = self._check_pil_available()
-
-    def _check_pil_available(self) -> bool:
-        """Check if PIL/Pillow is available for JPEG encoding."""
-        if self.image_format == ImageFormat.PNG:
-            return False
-
-        try:
-            from PIL import Image
-
-            return True
-        except ImportError:
-            LOG.warning(
-                "Pillow not installed; JPEG format unavailable. Using PNG instead."
+        self.image_quality = image_quality
+        self._backend = _detect_backend()
+        if self._backend is None:
+            raise RuntimeError(
+                "No screenshot backend available. "
+                "Install one of: cosmic-screenshot, grim, gnome-screenshot"
             )
-            self.image_format = ImageFormat.PNG
-            return False
+        LOG.info(f"Screenshot backend: {self._backend}")
 
-    def capture(
-        self, region: Optional[BoundingBox] = None
-    ) -> Tuple[bytes, ImageFormat]:
-        """
-        Capture screenshot and encode to specified format.
+    def capture(self) -> Tuple[bytes, ImageFormat]:
+        """Capture a screenshot and return (encoded_bytes, format)."""
+        png_path = _capture_png(self._backend)
+        try:
+            image = Image.open(png_path)
+            buf = io.BytesIO()
 
-        Args:
-            region: Optional bounding box to crop to. None for full screen.
-
-        Returns:
-            Tuple of (image_bytes, actual_format_used)
-        """
-        # Capture as PNG first
-        png_bytes = self._capture_png(region)
-
-        # Convert to JPEG if requested and available
-        if self.image_format == ImageFormat.JPEG and self._pil_available:
-            try:
-                jpeg_bytes = self._convert_to_jpeg(png_bytes)
-                return jpeg_bytes, ImageFormat.JPEG
-            except Exception as e:
-                LOG.error(f"JPEG encoding failed: {e}. Using PNG fallback.")
-                return png_bytes, ImageFormat.PNG
-
-        return png_bytes, ImageFormat.PNG
-
-    def _capture_png(self, region: Optional[BoundingBox]) -> bytes:
-        """Capture screenshot as PNG bytes."""
-        with mss() as sct:
-            if region:
-                monitor = {
-                    "left": max(0, region.left),
-                    "top": max(0, region.top),
-                    "width": max(1, region.width),
-                    "height": max(1, region.height),
-                }
-                screenshot = sct.grab(monitor)
+            if self.image_format == ImageFormat.WEBP:
+                image.save(buf, format="WEBP", quality=self.image_quality)
+            elif self.image_format == ImageFormat.JPEG:
+                image = image.convert("RGB")
+                image.save(buf, format="JPEG", quality=self.image_quality)
             else:
-                # Capture specific screen or first screen (not virtual desktop)
-                # screen_number: 0 = all screens (virtual), 1+ = specific screen
-                if self.screen_number == 0:
-                    # All screens (virtual desktop)
-                    screenshot = sct.grab(sct.monitors[0])
-                elif 1 <= self.screen_number <= len(sct.monitors) - 1:
-                    # Specific screen (monitors[0] is virtual, monitors[1+] are physical)
-                    screenshot = sct.grab(sct.monitors[self.screen_number])
-                else:
-                    # Default to first physical screen if out of range
-                    LOG.warning(
-                        f"Screen {self.screen_number} not found. "
-                        f"Using screen 1. Available screens: {len(sct.monitors) - 1}"
-                    )
-                    screenshot = sct.grab(sct.monitors[1])
+                image.save(buf, format="PNG")
 
-            buffer = io.BytesIO()
-            buffer.write(to_png(screenshot.rgb, screenshot.size))
-            return buffer.getvalue()
+            return buf.getvalue(), self.image_format
+        finally:
+            png_path.unlink(missing_ok=True)
 
-    def _convert_to_jpeg(self, png_bytes: bytes) -> bytes:
-        """Convert PNG bytes to JPEG."""
-        from PIL import Image
 
-        png_buffer = io.BytesIO(png_bytes)
-        image = Image.open(png_buffer).convert("RGB")
+def _detect_backend() -> Optional[str]:
+    """Find the first available screenshot tool."""
+    for tool in ("cosmic-screenshot", "grim", "gnome-screenshot"):
+        if shutil.which(tool):
+            return tool
+    return None
 
-        jpeg_buffer = io.BytesIO()
-        image.save(jpeg_buffer, format="JPEG", quality=self.jpeg_quality)
-        return jpeg_buffer.getvalue()
+
+def _capture_png(backend: str) -> Path:
+    """Invoke the backend tool and return a Path to the resulting PNG."""
+    tmpdir = Path(tempfile.mkdtemp(prefix="aw-screenshot-"))
+
+    if backend == "cosmic-screenshot":
+        subprocess.run(
+            [
+                "cosmic-screenshot",
+                "--interactive=false",
+                "--modal=false",
+                "--notify=false",
+                f"--save-dir={tmpdir}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    elif backend == "grim":
+        out = tmpdir / "screenshot.png"
+        subprocess.run(["grim", str(out)], check=True, capture_output=True)
+    elif backend == "gnome-screenshot":
+        out = tmpdir / "screenshot.png"
+        subprocess.run(
+            ["gnome-screenshot", "-f", str(out)],
+            check=True,
+            capture_output=True,
+        )
+
+    # Find the PNG file the tool wrote
+    pngs = list(tmpdir.glob("*.png"))
+    if not pngs:
+        tmpdir.rmdir()
+        raise RuntimeError(f"{backend} produced no output file")
+
+    return pngs[0]
